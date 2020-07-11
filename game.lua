@@ -1,5 +1,6 @@
 local snake = require("snake")
 local viewport = require("viewport")
+local control = require("control")
 
 local M = {}
 
@@ -35,6 +36,7 @@ M.new = function(width, height)
       step = 0,
       snake = snake.new(math.floor(width / 2), math.floor(height / 2), width, height),
       apple = nil,
+      control = control.new(),
       game_over = false,
       score = 0,
       old = nil,
@@ -53,6 +55,7 @@ local step = function(old)
     step = old.step + 1,
     snake = snake.move(old.snake),
     apple = old.apple,
+    control = old.control,
     game_over = old.game_over,
     score = old.score,
     old = old,
@@ -61,12 +64,14 @@ local step = function(old)
   if new.snake.x == new.apple.x and new.snake.y == new.apple.y then
     new.snake = snake.grow(old.snake)
     new.apple = new_apple(new)
+    new.control = control.restore(new.control)
     new.score = new.score + 1
   end
 
   for i, pos in ipairs(new.snake.body) do
     if pos.x == new.snake.x and pos.y == new.snake.y and i < table.getn(new.snake.body) then
       new.score = old.score
+      new.control = old.control
       new.game_over = true
       return new
     end
@@ -96,7 +101,7 @@ end
 M.input = function(old, dir)
   local new = old
 
-  if dir.x ~= old.state.snake.dir.x and dir.y ~= old.state.snake.dir.y then
+  if dir.x ~= old.state.snake.dir.x and dir.y ~= old.state.snake.dir.y and control.available(new.state.control, dir) then
     new = {
       speed = old.speed,
       time = old.time,
@@ -106,6 +111,7 @@ M.input = function(old, dir)
         step = old.state.step,
         snake = snake.turn(old.state.snake, dir),
         apple = old.state.apple,
+        control = control.consume(new.state.control, dir),
         game_over = old.game_over,
         score = old.state.score,
         old = old.state.old,
@@ -124,6 +130,11 @@ M.draw = function(game, view)
     screen_rect = viewport.to_screen(view, {x = game.state.apple.x / game.state.width, y = game.state.apple.y / game.state.height, width = 1 / game.state.width, height = 1 / game.state.height})
     love.graphics.ellipse("fill", screen_rect.x + screen_rect.width / 2, screen_rect.y + screen_rect.height / 2, screen_rect.width / 2, screen_rect.height / 2)
   end
+  screen_rect = viewport.to_screen(view, {x = 1.05, y = 0.05, width = 0.1, height = 0})
+  love.graphics.printf("Score:", math.floor(screen_rect.x), math.floor(screen_rect.y), math.ceil(screen_rect.width), "center")
+  screen_rect = viewport.to_screen(view, {x = 1.05, y = 0.1, width = 0.1, height = 0})
+  love.graphics.printf(tostring(game.state.score), math.floor(screen_rect.x), math.floor(screen_rect.y), math.ceil(screen_rect.width), "center")
+  control.draw(view, game.state.control)
 end
 
 return M
